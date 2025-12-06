@@ -1,122 +1,275 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
-#define QTD_TERRITORIOS 3
+#define QTD_TERRITORIOS 5
 
+// Struct que representa um território no mapa
 typedef struct {
     char nome[50];
-    char corExercito[30];
+    char cor[30];
     int tropas;
 } Territorio;
 
-// Remover \n do fgets
-void removeQuebraLinha(char *str) {
+// Tipos de missão que o jogador pode receber
+typedef enum {
+    MISSAO_DESTRUIR_VERDE,
+    MISSAO_CONQUISTAR_3
+} Missao;
+
+// ---------------------------------------------------------------------------
+// Função para remover o '\n' que vem no final quando usamos fgets
+// ---------------------------------------------------------------------------
+void removerQuebraLinha(char *str) {
     size_t len = strlen(str);
-    if (len > 0 && str[len - 1] == '\n') {
+    if (len > 0 && str[len - 1] == '\n')
         str[len - 1] = '\0';
-    }
 }
 
-// Cadastrar territórios
-void cadastrarTerritorios(Territorio *mapa) {
+// ---------------------------------------------------------------------------
+// Função que sorteia um número entre 1 e 6 (simula um dado)
+// ---------------------------------------------------------------------------
+int dado() {
+    return (rand() % 6) + 1;
+}
+
+// ---------------------------------------------------------------------------
+// Função para criar os territórios automaticamente
+// ---------------------------------------------------------------------------
+void inicializarMapa(Territorio *mapa) {
+    // Listas com nomes e cores prontas
+    const char *nomes[QTD_TERRITORIOS] = {
+        "Alaska", "Alberta", "Brasil", "Egito", "Japão"
+    };
+
+    const char *cores[QTD_TERRITORIOS] = {
+        "Azul", "Vermelho", "Verde", "Preto", "Amarelo"
+    };
+
+    // Preenche o mapa
     for (int i = 0; i < QTD_TERRITORIOS; i++) {
-        printf("\n--- Cadastro do Território %d ---\n", i + 1);
-
-        printf("Nome: ");
-        fgets(mapa[i].nome, sizeof(mapa[i].nome), stdin);
-        removeQuebraLinha(mapa[i].nome);
-
-        printf("Cor do Exército: ");
-        fgets(mapa[i].corExercito, sizeof(mapa[i].corExercito), stdin);
-        removeQuebraLinha(mapa[i].corExercito);
-
-        printf("Tropas: ");
-        scanf("%d", &mapa[i].tropas);
-        getchar(); // limpa buffer
+        strcpy(mapa[i].nome, nomes[i]);    // Copia nome
+        strcpy(mapa[i].cor, cores[i]);     // Copia cor
+        mapa[i].tropas = (rand() % 5) + 3; // Tropas entre 3 e 7
     }
 }
 
-// Mostra mapa atual
-void exibirMapa(Territorio *mapa) {
+// ---------------------------------------------------------------------------
+// Mostra o mapa inteiro na tela
+// ---------------------------------------------------------------------------
+void exibirMapa(const Territorio *mapa) {
     printf("\n=== ESTADO ATUAL DO MAPA ===\n");
+
     for (int i = 0; i < QTD_TERRITORIOS; i++) {
         printf("\nTerritório %d\n", i + 1);
         printf("Nome: %s\n", mapa[i].nome);
-        printf("Cor: %s\n", mapa[i].corExercito);
+        printf("Exército: %s\n", mapa[i].cor);
         printf("Tropas: %d\n", mapa[i].tropas);
     }
 }
 
-// Simula ataque entre dois territórios
+// ---------------------------------------------------------------------------
+// Sorteia a missão do jogador (50% de chance para cada)
+// ---------------------------------------------------------------------------
+Missao sortearMissao() {
+    return rand() % 2 == 0 ? MISSAO_DESTRUIR_VERDE : MISSAO_CONQUISTAR_3;
+}
+
+// ---------------------------------------------------------------------------
+// Mostra o texto da missão na tela
+// ---------------------------------------------------------------------------
+void exibirMissao(const Missao missao) {
+    printf("\n=== SUA MISSÃO ===\n");
+
+    if (missao == MISSAO_DESTRUIR_VERDE)
+        printf("Destruir o exército VERDE.\n");
+    else
+        printf("Conquistar 3 territórios.\n");
+}
+
+// ---------------------------------------------------------------------------
+// Conta quantos territórios pertencem ao jogador (mesma cor)
+// ---------------------------------------------------------------------------
+int contarConquistadosPelaCor(const Territorio *mapa, const char *corJogador) {
+    int total = 0;
+
+    for (int i = 0; i < QTD_TERRITORIOS; i++)
+        if (strcmp(mapa[i].cor, corJogador) == 0)
+            total++;
+
+    return total;
+}
+
+// ---------------------------------------------------------------------------
+// Verifica se ainda existe algum território verde
+// ---------------------------------------------------------------------------
+int exercitoVerdeExiste(const Territorio *mapa) {
+    for (int i = 0; i < QTD_TERRITORIOS; i++)
+        if (strcmp(mapa[i].cor, "Verde") == 0)
+            return 1; // Existe
+
+    return 0; // Não existe mais
+}
+
+// ---------------------------------------------------------------------------
+// Verifica se a missão já foi cumprida
+// ---------------------------------------------------------------------------
+int verificarMissao(const Territorio *mapa, Missao m, const char *corJogador) {
+    // Missão 1: destruir exército verde
+    if (m == MISSAO_DESTRUIR_VERDE)
+        return !exercitoVerdeExiste(mapa);
+
+    // Missão 2: conquistar 3 territórios
+    return contarConquistadosPelaCor(mapa, corJogador) >= 3;
+}
+
+// ---------------------------------------------------------------------------
+// Simula uma batalha entre atacante e defensor
+// ---------------------------------------------------------------------------
 void simularBatalha(Territorio *atacante, Territorio *defensor) {
-    int dadoAtk = (rand() % 6) + 1;
-    int dadoDef = (rand() % 6) + 1;
+    printf("\n>>> BATALHA ENTRE %s (A) E %s (D) <<<\n",
+           atacante->nome, defensor->nome);
 
-    printf("\n>>> BATALHA <<<\n");
-    printf("%s (A) rolou: %d\n", atacante->nome, dadoAtk);
-    printf("%s (D) rolou: %d\n", defensor->nome, dadoDef);
+    int atkDado = dado();
+    int defDado = dado();
 
-    // Empates favorecem o atacante
-    if (dadoAtk >= dadoDef) {
+    printf("Ataque rolou: %d\n", atkDado);
+    printf("Defesa rolou: %d\n", defDado);
+
+    // Atacante ganha empates
+    if (atkDado >= defDado) {
         printf("Atacante venceu! %s perde 1 tropa.\n", defensor->nome);
         defensor->tropas--;
 
+        // Verifica se o defensor perdeu todas as tropas
         if (defensor->tropas <= 0) {
             printf("\n*** TERRITÓRIO CONQUISTADO! ***\n");
-            defensor->tropas = 1; // atacante sempre entra com 1 tropa
-            strcpy(defensor->corExercito, atacante->corExercito);
-            printf("%s agora pertence ao exército %s.\n",
-                   defensor->nome, defensor->corExercito);
+
+            // Muda o exército dono do território
+            strcpy(defensor->cor, atacante->cor);
+            defensor->tropas = 1; // entra com 1 tropa
         }
     } else {
-        printf("Defensor venceu! Nenhuma tropa perdida pelo atacante.\n");
+        printf("Defensor venceu! Nada acontece com o atacante.\n");
     }
 }
 
-int main() {
-    srand(time(NULL));
+// ---------------------------------------------------------------------------
+// Função principal de ataque, onde o jogador escolhe quem ataca e defende
+// ---------------------------------------------------------------------------
+void realizarAtaque(Territorio *mapa, const char *corJogador) {
+    int atk, def;
 
-    // Alocação dinâmica com calloc
-    Territorio *mapa = (Territorio *) calloc(QTD_TERRITORIOS, sizeof(Territorio));
+    printf("\nEscolha o território ATACANTE (1-5): ");
+    scanf("%d", &atk);
+
+    printf("Escolha o território DEFENSOR (1-5): ");
+    scanf("%d", &def);
+
+    getchar(); // limpa buffer
+
+    // Verifica se a entrada é válida
+    if (atk < 1 || atk > 5 || def < 1 || def > 5 || atk == def) {
+        printf("Entrada inválida!\n");
+        return;
+    }
+
+    Territorio *a = &mapa[atk - 1];
+    Territorio *d = &mapa[def - 1];
+
+    // Jogador só pode atacar com seu próprio exército
+    if (strcmp(a->cor, corJogador) != 0) {
+        printf("Você só pode atacar usando seus territórios!\n");
+        return;
+    }
+
+    // Ataque só pode acontecer se houver mais de 1 tropa
+    if (a->tropas <= 1) {
+        printf("O território atacante precisa ter mais de 1 tropa!\n");
+        return;
+    }
+
+    // Chama a batalha
+    simularBatalha(a, d);
+}
+
+// ---------------------------------------------------------------------------
+// Menu principal do jogo
+// ---------------------------------------------------------------------------
+void menu(Territorio *mapa, Missao missao, const char *corJogador) {
+    int opcao;
+
+    while (1) {
+        printf("\n=== MENU PRINCIPAL ===\n");
+        printf("1 - Atacar\n");
+        printf("2 - Verificar Missão\n");
+        printf("0 - Sair\n");
+        printf("Escolha: ");
+        scanf("%d", &opcao);
+        getchar();
+
+        switch (opcao) {
+            case 1:
+                realizarAtaque(mapa, corJogador);
+                exibirMapa(mapa);
+                break;
+
+            case 2:
+                exibirMissao(missao);
+
+                if (verificarMissao(mapa, missao, corJogador)) {
+                    printf("\n🎉 PARABÉNS! VOCÊ CUMPRIU SUA MISSÃO! 🎉\n");
+                    return;
+                } else {
+                    printf("\nMissão ainda não cumprida.\n");
+                }
+                break;
+
+            case 0:
+                printf("Saindo do jogo...\n");
+                return;
+
+            default:
+                printf("Opção inválida!\n");
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Função principal
+// ---------------------------------------------------------------------------
+int main() {
+    srand(time(NULL)); // Gera números aleatórios diferentes a cada execução
+
+    // Aloca o mapa na memória
+    Territorio *mapa = calloc(QTD_TERRITORIOS, sizeof(Territorio));
     if (!mapa) {
         printf("Erro ao alocar memória.\n");
         return 1;
     }
 
-    printf("=== WAR Estruturado – Nível Aventureiro ===\n");
+    // Cor fixa do jogador (pode ser expandido)
+    const char *corJogador = "Azul";
 
-    cadastrarTerritorios(mapa);
+    printf("\n=== WAR Estruturado – Nível Mestre ===\n");
+    printf("Você é o exército: %s\n\n", corJogador);
+
+    // Inicializa o mapa
+    inicializarMapa(mapa);
+
+    // Sorteia missão
+    Missao missao = sortearMissao();
+    exibirMissao(missao);
+
+    // Mostra o mapa
     exibirMapa(mapa);
 
-    int atk, def;
+    // Inicia o menu do jogo
+    menu(mapa, missao, corJogador);
 
-    while (1) {
-        printf("\nDigite o território atacante (1-5) ou 0 para sair: ");
-        scanf("%d", &atk);
-        if (atk == 0) break;
-
-        printf("Digite o território defensor (1-5): ");
-        scanf("%d", &def);
-        getchar();
-
-        if (atk < 1 || atk > 5 || def < 1 || def > 5 || atk == def) {
-            printf("Escolha inválida!\n");
-            continue;
-        }
-
-        if (mapa[atk - 1].tropas <= 1) {
-            printf("O atacante precisa ter mais de 1 tropa para atacar!\n");
-            continue;
-        }
-
-        simularBatalha(&mapa[atk - 1], &mapa[def - 1]);
-        exibirMapa(mapa);
-    }
-
+    // Libera memória
     free(mapa);
 
-    printf("\nJogo encerrado. Obrigado por jogar!\n");
     return 0;
 }
